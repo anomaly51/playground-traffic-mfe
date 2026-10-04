@@ -590,6 +590,7 @@ export function TrafficApp() {
     <section className="traffic-mfe" aria-labelledby="traffic-title">
       <header className="traffic-heading">
         <h2 id="traffic-title">Traffic</h2>
+        <small>Preview E2E 20261004</small>
       </header>
 
       <div className="traffic-grid">
