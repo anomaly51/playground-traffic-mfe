@@ -52,6 +52,8 @@ jobs:
   publish:
     if: github.event_name == 'push' && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main')
     needs: tests
+    outputs:
+      published: ${{ steps.latest.outputs.publish }}
     environment: ${{ github.ref_name == 'dev' && 'dev' || 'staging' }}
     runs-on: arc-runner-set
     timeout-minutes: 30
@@ -92,11 +94,6 @@ jobs:
         shell: bash
         run: |
           printf 'tag=%s-%s\n' "$GITHUB_REF_NAME" "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
-          if [[ "$GITHUB_REF_NAME" == "dev" ]]; then
-            echo "channel=dev" >> "$GITHUB_OUTPUT"
-          else
-            echo "channel=staging" >> "$GITHUB_OUTPUT"
-          fi
       - name: Check latest branch revision
         id: latest
         shell: bash
@@ -122,7 +119,6 @@ jobs:
           push: true
           tags: |
             harbor.internal.api-api-api.com/playground/traffic-mfe:${{ steps.image.outputs.tag }}
-            harbor.internal.api-api-api.com/playground/traffic-mfe:${{ steps.image.outputs.channel }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
@@ -168,3 +164,18 @@ jobs:
           path: ${{ runner.temp }}/release-image.json
           if-no-files-found: error
           retention-days: 90
+
+  publish-gitops:
+    if: >-
+      github.event_name == 'push' &&
+      (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main') &&
+      needs.publish.result == 'success' &&
+      needs.publish.outputs.published == 'true'
+    needs: publish
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+    uses: anomaly51/general-1-argocd/.github/workflows/publish-playground.yaml@6c75be6a6c2848ac11d56572d8c24d4d2206bb37
+    with:
+      service: traffic-mfe
